@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LPUt | Enterprise Remote</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+</head>
+<body>
+    <!-- VIEW 1: Dashboard -->
+    <div id="dashboard-view" class="view active">
+        <div class="bg-glow"></div>
+        <header class="dashboard-header glass-panel">
+            <h1 class="logo">
+                <i class='bx bxs-network-chart'></i>
+                LPU<span class="logo-accent">t</span>
+            </h1>
+            <div id="server-status" class="server-status">
+                <span class="status-dot offline"></span> Disconnected
+            </div>
+        </header>
+
+        <main class="dashboard-content">
+            <div class="section-title">
+                <h2>Connected Endpoints</h2>
+                <button id="refresh-btn" class="btn-icon" title="Refresh"><i class='bx bx-refresh'></i></button>
+            </div>
+            
+            <div id="devices-grid" class="devices-grid">
+                <div class="empty-state">
+                    <i class='bx bx-loader-alt bx-spin'></i>
+                    <p>Connecting to server...</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- VIEW 2: Fullscreen Remote Session -->
+    <div id="session-view" class="view">
+        
+        <!-- Auto-hiding Toolbar -->
+        <div id="session-toolbar" class="session-toolbar glass-panel pinned">
+            <div class="toolbar-drag-handle"><i class='bx bx-grid-horizontal'></i></div>
+            
+            <div class="toolbar-section">
+                <div class="session-info">
+                    <i class='bx bx-shield-quarter success-color'></i>
+                    <span id="session-title">Device</span>
+                </div>
+            </div>
+
+            <div class="toolbar-divider"></div>
+            
+            <div class="toolbar-section">
+                <button id="btn-copy" class="btn-tool" title="Copy from Remote"><i class='bx bx-copy'></i></button>
+                <button id="btn-paste" class="btn-tool" title="Paste to Remote"><i class='bx bx-paste'></i></button>
+            </div>
+
+            <div class="toolbar-divider"></div>
+
+            <div class="toolbar-section">
+                <button id="btn-files" class="btn-tool" title="File Transfer"><i class='bx bx-folder'></i></button>
+                <button id="sysinfo-btn" class="btn-tool" title="System Info"><i class='bx bx-info-circle'></i></button>
+            </div>
+
+            <div class="toolbar-divider"></div>
+
+            <div class="toolbar-section">
+                <select id="quality-select" class="glass-select">
+                    <option value="low">Low Q</option>
+                    <option value="medium" selected>Med Q</option>
+                    <option value="high">High Q</option>
+                </select>
+                <select id="fps-select" class="glass-select">
+                    <option value="15">15 FPS</option>
+                    <option value="30" selected>30 FPS</option>
+                    <option value="60">60 FPS</option>
+                </select>
+            </div>
+
+            <div class="toolbar-divider"></div>
+
+            <div class="toolbar-section">
+                <button id="pin-btn" class="btn-tool active" title="Pin Toolbar"><i class='bx bx-pin'></i></button>
+                <button id="fullscreen-btn" class="btn-tool" title="Fullscreen"><i class='bx bx-fullscreen'></i></button>
+                <button id="disconnect-btn" class="btn-tool btn-danger" title="Disconnect"><i class='bx bx-power-off'></i></button>
+            </div>
+        </div>
+
+        <!-- The Remote Screen -->
+        <div id="canvas-wrapper" class="canvas-wrapper">
+            <canvas id="screen-canvas"></canvas>
+            <div id="remote-cursor"><i class='bx bxs-pointer'></i></div>
+        </div>
+
+        <!-- Overlays (Sysinfo / Files) -->
+        <div id="sysinfo-panel" class="side-panel glass-panel">
+            <div class="panel-header">
+                <h3><i class='bx bx-chip'></i> System Information</h3>
+                <button id="close-sysinfo" class="btn-icon"><i class='bx bx-x'></i></button>
+            </div>
+            <div id="sysinfo-content" class="sysinfo-content custom-scrollbar">
+                <div class="loading-state"><i class='bx bx-loader-alt bx-spin'></i> Loading telemetry...</div>
+            </div>
+        </div>
+
+        <div id="file-panel" class="side-panel glass-panel">
+            <div class="panel-header">
+                <h3><i class='bx bx-folder-open'></i> File Transfer</h3>
+                <button id="close-files" class="btn-icon"><i class='bx bx-x'></i></button>
+            </div>
+            <div class="panel-body custom-scrollbar">
+                <div class="upload-zone" id="upload-zone">
+                    <i class='bx bx-cloud-upload'></i>
+                    <p>Drag files here to upload to remote Downloads folder</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Toast notifications -->
+    <div id="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
