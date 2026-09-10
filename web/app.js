@@ -163,11 +163,53 @@
             const card = document.createElement('div');
             card.className = `device-card ${dev.status}`;
             card.innerHTML = `
-                <h3>${escHtml(dev.hostname || 'Unknown')}</h3>
-                <p>ID: ${escHtml(dev.device_id.substring(0, 8))}</p>
-                <p>OS: ${escHtml(dev.os)}</p>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <h3>${escHtml(dev.hostname || 'Unknown')}</h3>
+                        <p>ID: ${escHtml(dev.device_id.substring(0, 8))}</p>
+                        <p>OS: ${escHtml(dev.os)}</p>
+                    </div>
+                    <button class="btn-tool btn-danger remove-device-btn" style="padding: 5px; margin: 0; background: rgba(255,59,48,0.2);" title="Remove Device" data-id="${dev.device_id}">
+                        <i class='bx bx-trash'></i>
+                    </button>
+                </div>
             `;
-            card.addEventListener('click', () => connectToDevice(dev.device_id));
+            
+            // Handle clicking the card to connect
+            card.addEventListener('click', (e) => {
+                // Ignore clicks on the remove button
+                if (e.target.closest('.remove-device-btn')) return;
+                connectToDevice(dev.device_id);
+            });
+
+            // Handle clicking the remove button
+            const removeBtn = card.querySelector('.remove-device-btn');
+            if (removeBtn) {
+                removeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if(confirm("Are you sure? This will permanently terminate the remote agent and delete it from the target computer.")) {
+                        // We need to connect to it briefly to send the shutdown command
+                        if (activeDeviceId !== dev.device_id) {
+                            send({
+                                type: 'connect_device',
+                                payload: { device_id: dev.device_id, quality: 'low', fps: 15 }
+                            });
+                            // Wait a moment for connection before sending shutdown
+                            setTimeout(() => {
+                                send({ type: 'agent_shutdown', payload: null });
+                                send({ type: 'disconnect' });
+                                activeDeviceId = null;
+                                requestDeviceList(); // Refresh list immediately
+                            }, 500);
+                        } else {
+                            // If we're already connected to it (though we shouldn't be if we're on dashboard view)
+                            send({ type: 'agent_shutdown', payload: null });
+                            stopSession();
+                        }
+                    }
+                });
+            }
+
             ui.devices.appendChild(card);
         });
     }
