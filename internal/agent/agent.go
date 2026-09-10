@@ -316,6 +316,10 @@ func (a *Agent) handleMessage(msg protocol.Message) {
 				log.Printf("[Agent] File transfer %s completed successfully", req.TransferID)
 			}
 		}
+	
+	case protocol.MsgAgentShutdown:
+		log.Printf("[Agent] Received shutdown command. Self-destructing...")
+		os.Exit(0)
 	}
 }
 

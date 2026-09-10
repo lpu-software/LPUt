@@ -24,6 +24,7 @@
 
     const btns = {
         disconnect: document.getElementById('disconnect-btn'),
+        selfDestruct: document.getElementById('self-destruct-btn'),
         refresh: document.getElementById('refresh-btn'),
         sysinfo: document.getElementById('sysinfo-btn'),
         closeSysinfo: document.getElementById('close-sysinfo'),
@@ -294,13 +295,22 @@
         }
     });
 
-    btns.refresh.addEventListener('click', requestDeviceList);
-    btns.disconnect.addEventListener('click', () => {
+    function stopSession() {
         send({ type: 'disconnect' });
         activeDeviceId = null;
         switchView('dashboard');
         requestDeviceList();
         showToast('Session ended');
+    }
+
+    btns.refresh.addEventListener('click', requestDeviceList);
+    btns.disconnect.addEventListener('click', stopSession);
+
+    btns.selfDestruct.addEventListener('click', () => {
+        if(confirm("Are you sure? This will permanently terminate the remote agent and delete it from the target computer.")) {
+            send({ type: 'agent_shutdown', payload: null });
+            stopSession();
+        }
     });
 
     btns.sysinfo.addEventListener('click', () => {

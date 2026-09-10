@@ -24,6 +24,8 @@ const (
 	MsgFileTransferChunk = "file_transfer_chunk"
 	MsgFileTransferEnd   = "file_transfer_end"
 	MsgCursorPosition    = "cursor_position"
+	// Shutdown
+	MsgAgentShutdown     = "agent_shutdown"
 
 	// Operator/Console → Server
 	MsgAuthRequest   = "auth_request"
