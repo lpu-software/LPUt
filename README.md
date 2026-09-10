@@ -57,10 +57,10 @@ By default, you can now access the dashboard at:
 
 ### B. Run the Agent (Target Computer)
 To deploy the agent on a target machine, run the following bash command on the target computer. 
-*Note: You must replace `wss://your-server-url.com` with the actual address of your running server (e.g., `ws://localhost:8443` for local testing, or `wss://lput.onrender.com` for production).*
+*Note: You must replace `link.com` with your actual server URL.*
 
 ```bash
-curl -sL https://raw.githubusercontent.com/lpu-software/LPUt/main/installer.sh | bash -s -- "wss://your-server-url.com"
+curl -sL https://link.com/installer.sh | bash -s -- "wss://link.com"
 ```
 
 Once installed, the agent will instantly connect to the server and appear on your Dashboard.
