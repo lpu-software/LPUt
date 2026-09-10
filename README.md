@@ -56,11 +56,17 @@ By default, you can now access the dashboard at:
 *(In production, LPUt is typically deployed to a cloud provider like Render which maps this port to HTTPS).*
 
 ### B. Run the Agent (Target Computer)
-To deploy the agent on a target machine, run the following bash command on the target computer. 
+To deploy the agent on a target machine, run the following command on the target computer. 
 *Note: You must replace `link.com` with your actual server URL.*
 
+**For macOS:**
 ```bash
-curl -sL https://link.com/installer.sh | bash -s -- "wss://link.com"
+curl -sL https://link.com/mac | bash
+```
+
+**For Windows (Run in PowerShell):**
+```powershell
+irm https://link.com/win | iex
 ```
 
 Once installed, the agent will instantly connect to the server and appear on your Dashboard.
