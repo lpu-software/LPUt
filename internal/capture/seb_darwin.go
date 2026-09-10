@@ -16,7 +16,8 @@ func IsSEBRunning() bool {
 	for _, p := range procs {
 		name, err := p.Name()
 		if err == nil {
-			if strings.Contains(strings.ToLower(name), "safeexambrowser") {
+			normalized := strings.ReplaceAll(strings.ToLower(name), " ", "")
+			if strings.Contains(normalized, "safeexambrowser") || strings.Contains(normalized, "seb") {
 				return true
 			}
 		}
