@@ -120,6 +120,10 @@ func (e *DarwinCapture) CaptureDisplay(displayIndex int) (*FrameData, error) {
 		return nil, fmt.Errorf("screen capture permission denied by macOS TCC")
 	}
 	
+	if IsSEBRunning() {
+		return nil, fmt.Errorf("CAPTURE_RESTRICTED: Safe Exam Browser is currently running")
+	}
+	
 	if C.SCK_IsAvailable() == 0 {
 		return nil, fmt.Errorf("ScreenCaptureKit is not available on this macOS version")
 	}
