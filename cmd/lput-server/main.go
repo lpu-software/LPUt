@@ -21,6 +21,11 @@ func main() {
 		return
 	}
 
+	envPort := os.Getenv("PORT")
+	if envPort != "" {
+		*port = envPort
+	}
+
 	apiKeys := map[string]string{
 		*apiKey: "admin",
 	}
