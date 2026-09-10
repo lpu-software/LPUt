@@ -400,7 +400,7 @@ func (s *Server) handleConsoleWS(w http.ResponseWriter, r *http.Request) {
 				},
 			})
 
-		case protocol.MsgInputEvent, protocol.MsgClipboardRequest, protocol.MsgClipboardUpdate, protocol.MsgFileTransferStart, protocol.MsgFileTransferChunk, protocol.MsgFileTransferEnd, protocol.MsgAgentShutdown:
+		case protocol.MsgInputEvent, protocol.MsgClipboardRequest, protocol.MsgClipboardUpdate, protocol.MsgFileTransferStart, protocol.MsgFileTransferChunk, protocol.MsgFileTransferEnd:
 			// Forward message from operator to the connected device agent
 			s.mu.RLock()
 			if op.ActiveDevice != "" {
@@ -409,6 +409,24 @@ func (s *Server) handleConsoleWS(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			s.mu.RUnlock()
+
+		case protocol.MsgAgentShutdown:
+			s.mu.Lock()
+			if op.ActiveDevice != "" {
+				if dev, ok := s.devices[op.ActiveDevice]; ok {
+					writeJSON(dev.Conn, &dev.WriteMu, msg)
+					delete(s.devices, op.ActiveDevice)
+				}
+				if op.SessionID != "" {
+					if sess, ok := s.sessions[op.SessionID]; ok {
+						sess.Active = false
+						delete(s.sessions, op.SessionID)
+					}
+					op.SessionID = ""
+				}
+				op.ActiveDevice = ""
+			}
+			s.mu.Unlock()
 
 		case protocol.MsgQualityControl:
 			s.mu.RLock()
