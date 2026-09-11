@@ -4,12 +4,12 @@ package capture
 
 /*
 #cgo CFLAGS: -x objective-c -fobjc-arc -Wno-deprecated-declarations
-#cgo LDFLAGS: -framework Cocoa -framework CoreGraphics -framework ScreenCaptureKit -framework CoreMedia -framework VideoToolbox -framework ImageIO
+#cgo LDFLAGS: -framework Cocoa -framework CoreGraphics -framework ScreenCaptureKit -framework CoreMedia -framework CoreVideo -framework ImageIO
 
 #import <Cocoa/Cocoa.h>
 #import <CoreGraphics/CoreGraphics.h>
 #include <stdlib.h>
-#include "screencapture.h"
+#include "screencapture_darwin.h"
 
 static void InitAccess() {
     static dispatch_once_t onceToken;
