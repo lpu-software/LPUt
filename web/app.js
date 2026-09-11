@@ -260,29 +260,10 @@
         };
     }
 
-    // Convert absolute remote coordinates to screen canvas coordinates to render the fake cursor
+    // The fake cursor logic is disabled because the actual OS cursor is already natively composited 
+    // into the image stream by ScreenCaptureKit (macOS) and GDI (Windows).
     function updateRemoteCursor(rx, ry) {
-        if (!canvas.width || !canvas.height) return;
-        if (!canvasRectCache) canvasRectCache = canvas.getBoundingClientRect();
-        
-        const rect = canvasRectCache;
-        const imgR = canvas.width / canvas.height;
-        const boxR = rect.width / rect.height;
-        let rw = rect.width, rh = rect.height, ox = 0, oy = 0;
-        if (boxR > imgR) { rw = rect.height * imgR; ox = (rect.width - rw) / 2; }
-        else { rh = rect.width / imgR; oy = (rect.height - rh) / 2; }
-        
-        // Convert rx,ry (absolute coordinates) to normalized [0,1]
-        // Note: The agent sends absolute coordinates. We need to normalize them based on the primary monitor width.
-        // Assuming single monitor for now:
-        let nx = rx / canvas.width;
-        let ny = ry / canvas.height;
-
-        let screenX = rect.left + ox + (nx * rw);
-        let screenY = rect.top + oy + (ny * rh);
-
-        ui.remoteCursor.style.display = 'block';
-        ui.remoteCursor.style.transform = `translate(${screenX}px, ${screenY}px)`;
+        // ui.remoteCursor.style.display = 'none';
     }
 
     window.addEventListener('resize', () => canvasRectCache = null);
@@ -294,7 +275,6 @@
         // Don't spam mouse moves constantly
         if (performance.now() % 50 < 16) { 
             sendInput({ type: 'mouse_move', x: c.nx, y: c.ny });
-            // Hide the remote cursor if we are controlling the mouse locally so they don't overlap awkwardly
             ui.remoteCursor.style.display = 'none';
         }
     });

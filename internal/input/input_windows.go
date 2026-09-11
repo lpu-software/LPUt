@@ -4,6 +4,7 @@ package input
 
 import (
 	"github.com/go-vgo/robotgo"
+	"github.com/kbinani/screenshot"
 )
 
 // WindowsInputController implements InputController on Windows via robotgo (SendInput).
@@ -14,16 +15,18 @@ func NewInputController() (InputController, error) {
 }
 
 func (w *WindowsInputController) MoveMouse(x, y float64) error {
-	sw, sh := robotgo.GetScreenSize()
-	robotgo.Move(int(x*float64(sw)), int(y*float64(sh)))
+	bounds := screenshot.GetDisplayBounds(0) // Assume primary display for now
+	targetX := float64(bounds.Min.X) + (x * float64(bounds.Dx()))
+	targetY := float64(bounds.Min.Y) + (y * float64(bounds.Dy()))
+	robotgo.Move(int(targetX), int(targetY))
 	return nil
 }
 
 func (w *WindowsInputController) MouseButton(button, state string, x, y float64) error {
-	sw, sh := robotgo.GetScreenSize()
-	posX := int(x * float64(sw))
-	posY := int(y * float64(sh))
-	robotgo.Move(posX, posY)
+	bounds := screenshot.GetDisplayBounds(0) // Assume primary display for now
+	targetX := float64(bounds.Min.X) + (x * float64(bounds.Dx()))
+	targetY := float64(bounds.Min.Y) + (y * float64(bounds.Dy()))
+	robotgo.Move(int(targetX), int(targetY))
 
 	btn := button
 	if btn == "" {
