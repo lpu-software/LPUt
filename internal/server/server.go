@@ -272,7 +272,7 @@ func (s *Server) handleAgentWS(w http.ResponseWriter, r *http.Request) {
 			}
 			s.mu.Unlock()
 
-		case protocol.MsgSystemInfo, protocol.MsgPermissionStatus, protocol.MsgClipboardUpdate, protocol.MsgFileTransferStart, protocol.MsgFileTransferChunk, protocol.MsgFileTransferEnd, protocol.MsgCursorPosition, protocol.MsgPerformanceStats:
+		case protocol.MsgSystemInfo, protocol.MsgPermissionStatus, protocol.MsgClipboardUpdate, protocol.MsgFileTransferStart, protocol.MsgFileTransferChunk, protocol.MsgFileTransferEnd, protocol.MsgCursorPosition, protocol.MsgPerformanceStats, protocol.MsgWebRTCAnswer, protocol.MsgWebRTCICECandidate:
 			// Forward these messages from the agent to the connected operator
 			s.forwardToOperator(deviceID, msg)
 		}
@@ -422,49 +422,36 @@ func (s *Server) handleConsoleWS(w http.ResponseWriter, r *http.Request) {
 				},
 			})
 
-		case protocol.MsgInputEvent, protocol.MsgClipboardRequest, protocol.MsgClipboardUpdate, protocol.MsgFileTransferStart, protocol.MsgFileTransferChunk, protocol.MsgFileTransferEnd:
-			// Forward message from operator to the connected device agent
-			s.mu.RLock()
+		case protocol.MsgInputEvent, protocol.MsgQualityControl, protocol.MsgClipboardRequest, protocol.MsgClipboardUpdate, protocol.MsgFileTransferStart, protocol.MsgFileTransferChunk, protocol.MsgFileTransferEnd, protocol.MsgAgentShutdown, protocol.MsgWebRTCOffer, protocol.MsgWebRTCICECandidate:
+			s.mu.Lock()
 			if op.ActiveDevice != "" {
 				if dev, ok := s.devices[op.ActiveDevice]; ok {
 					writeJSON(dev.Conn, &dev.WriteMu, msg)
+					if msg.Type == protocol.MsgAgentShutdown {
+						delete(s.devices, op.ActiveDevice)
+					}
+				}
+				if msg.Type == protocol.MsgAgentShutdown {
+					if op.SessionID != "" {
+						if sess, ok := s.sessions[op.SessionID]; ok {
+							sess.Active = false
+							delete(s.sessions, op.SessionID)
+						}
+						op.SessionID = ""
+					}
+					op.ActiveDevice = ""
 				}
 			}
-			s.mu.RUnlock()
+			s.mu.Unlock()
+			if msg.Type == protocol.MsgAgentShutdown {
+				s.broadcastDeviceList()
+			}
 
 		case "ping":
 			writeJSON(conn, &op.WriteMu, protocol.Message{
 				Type:    "pong",
 				Payload: msg.Payload,
 			})
-
-		case protocol.MsgAgentShutdown:
-			s.mu.Lock()
-			if op.ActiveDevice != "" {
-				if dev, ok := s.devices[op.ActiveDevice]; ok {
-					writeJSON(dev.Conn, &dev.WriteMu, msg)
-					delete(s.devices, op.ActiveDevice)
-				}
-				if op.SessionID != "" {
-					if sess, ok := s.sessions[op.SessionID]; ok {
-						sess.Active = false
-						delete(s.sessions, op.SessionID)
-					}
-					op.SessionID = ""
-				}
-				op.ActiveDevice = ""
-			}
-			s.mu.Unlock()
-			s.broadcastDeviceList()
-
-		case protocol.MsgQualityControl:
-			s.mu.RLock()
-			if op.ActiveDevice != "" {
-				if dev, ok := s.devices[op.ActiveDevice]; ok {
-					writeJSON(dev.Conn, &dev.WriteMu, msg)
-				}
-			}
-			s.mu.RUnlock()
 
 		case protocol.MsgSysInfoRequest:
 			s.mu.RLock()

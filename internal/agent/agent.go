@@ -22,6 +22,8 @@ import (
 	"github.com/yatishydv/lput/internal/permission"
 	"github.com/yatishydv/lput/internal/protocol"
 	"github.com/yatishydv/lput/internal/sysinfo"
+
+	"github.com/pion/webrtc/v4"
 )
 
 const (
@@ -50,6 +52,10 @@ type Agent struct {
 	frameChan    chan []byte
 	quality      protocol.QualityControl
 	done         chan struct{}
+	
+	webrtcMu         sync.Mutex
+	peerConnection   *webrtc.PeerConnection
+	videoDataChannel *webrtc.DataChannel
 }
 
 // New creates a new agent.
@@ -318,10 +324,138 @@ func (a *Agent) handleMessage(msg protocol.Message) {
 			}
 		}
 	
+	case protocol.MsgWebRTCOffer:
+		data, _ := json.Marshal(msg.Payload)
+		var offer protocol.WebRTCSDP
+		if json.Unmarshal(data, &offer) == nil {
+			err := a.handleWebRTCOffer(offer)
+			if err != nil {
+				log.Printf("[Agent] WebRTC Offer failed: %v", err)
+			}
+		}
+
+	case protocol.MsgWebRTCICECandidate:
+		data, _ := json.Marshal(msg.Payload)
+		var candidate protocol.WebRTCICECandidate
+		if json.Unmarshal(data, &candidate) == nil {
+			a.webrtcMu.Lock()
+			if a.peerConnection != nil {
+				err := a.peerConnection.AddICECandidate(webrtc.ICECandidateInit{
+					Candidate:     candidate.Candidate,
+					SDPMid:        candidate.SDPMid,
+					SDPMLineIndex: candidate.SDPMLineIndex,
+				})
+				if err != nil {
+					log.Printf("[Agent] Failed to add ICE candidate: %v", err)
+				}
+			}
+			a.webrtcMu.Unlock()
+		}
+
 	case protocol.MsgAgentShutdown:
 		log.Printf("[Agent] Received shutdown command. Self-destructing...")
 		os.Exit(0)
 	}
+}
+
+func (a *Agent) handleWebRTCOffer(offer protocol.WebRTCSDP) error {
+	a.webrtcMu.Lock()
+	defer a.webrtcMu.Unlock()
+
+	// Clean up existing connection if any
+	if a.peerConnection != nil {
+		a.peerConnection.Close()
+	}
+
+	config := webrtc.Configuration{
+		ICEServers: []webrtc.ICEServer{
+			{
+				URLs: []string{"stun:stun.l.google.com:19302"},
+			},
+		},
+	}
+
+	pc, err := webrtc.NewPeerConnection(config)
+	if err != nil {
+		return err
+	}
+	a.peerConnection = pc
+
+	pc.OnICECandidate(func(c *webrtc.ICECandidate) {
+		if c == nil {
+			return
+		}
+		a.sendJSON(protocol.Message{
+			Type: protocol.MsgWebRTCICECandidate,
+			Payload: protocol.WebRTCICECandidate{
+				Candidate:     c.ToJSON().Candidate,
+				SDPMid:        c.ToJSON().SDPMid,
+				SDPMLineIndex: c.ToJSON().SDPMLineIndex,
+			},
+		})
+	})
+
+	pc.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
+		log.Printf("[Agent] WebRTC Peer Connection State has changed: %s", s.String())
+	})
+
+	pc.OnDataChannel(func(d *webrtc.DataChannel) {
+		log.Printf("[Agent] New DataChannel %s %d", d.Label(), d.ID())
+		
+		if d.Label() == "input" {
+			d.OnMessage(func(msg webrtc.DataChannelMessage) {
+				// Handle input over WebRTC!
+				var pMsg protocol.Message
+				if err := json.Unmarshal(msg.Data, &pMsg); err == nil {
+					if pMsg.Type == protocol.MsgInputEvent {
+						a.handleInput(pMsg)
+					}
+				}
+			})
+		} else if d.Label() == "video" {
+			a.webrtcMu.Lock()
+			a.videoDataChannel = d
+			a.webrtcMu.Unlock()
+		}
+	})
+
+	// Set the remote SessionDescription
+	err = pc.SetRemoteDescription(webrtc.SessionDescription{
+		Type: webrtc.SDPTypeOffer,
+		SDP:  offer.SDP,
+	})
+	if err != nil {
+		return err
+	}
+
+	// Create an answer
+	answer, err := pc.CreateAnswer(nil)
+	if err != nil {
+		return err
+	}
+
+	// Create channel that is blocked until ICE Gathering is complete
+	gatherComplete := webrtc.GatheringCompletePromise(pc)
+
+	// Sets the LocalDescription, and starts our UDP listeners
+	err = pc.SetLocalDescription(answer)
+	if err != nil {
+		return err
+	}
+
+	// Block until ICE Gathering is complete, disabling trickle ICE
+	<-gatherComplete
+
+	// Send answer
+	a.sendJSON(protocol.Message{
+		Type: protocol.MsgWebRTCAnswer,
+		Payload: protocol.WebRTCSDP{
+			Type: "answer",
+			SDP:  pc.LocalDescription().SDP,
+		},
+	})
+
+	return nil
 }
 
 func (a *Agent) handleInput(msg protocol.Message) {
@@ -390,16 +524,7 @@ func (a *Agent) startStreaming() {
 	log.Printf("[Agent] Streaming started (FPS=%d, Quality=%s)", a.quality.FPS, a.quality.Quality)
 
 	// Start dedicated frame sender goroutine
-	go func() {
-		for {
-			select {
-			case <-a.stopStream:
-				return
-			case frame := <-a.frameChan:
-				a.sendBinary(frame)
-			}
-		}
-	}()
+	go a.senderLoop()
 
 	go func() {
 		fps := a.quality.FPS
@@ -473,6 +598,43 @@ func (a *Agent) stopStreaming() {
 	a.streaming = false
 	close(a.stopStream)
 	log.Printf("[Agent] Streaming stopped")
+}
+
+// senderLoop reads frames from frameChan and sends them via WebRTC DataChannel or WebSocket.
+func (a *Agent) senderLoop() {
+	defer log.Printf("[Agent] Sender loop exiting")
+	for {
+		select {
+		case <-a.stopStream:
+			return
+		case <-a.done:
+			return
+		case frameData := <-a.frameChan:
+			// Try WebRTC UDP DataChannel first (zero-latency)
+			a.webrtcMu.Lock()
+			dc := a.videoDataChannel
+			a.webrtcMu.Unlock()
+
+			sentOverWebRTC := false
+			if dc != nil && dc.ReadyState() == webrtc.DataChannelStateOpen {
+				err := dc.Send(frameData)
+				if err == nil {
+					sentOverWebRTC = true
+				} else {
+					log.Printf("[Agent] WebRTC Send failed: %v", err)
+				}
+			}
+
+			// Fallback to TCP WebSocket if WebRTC isn't ready or fails
+			if !sentOverWebRTC {
+				a.connMu.Lock()
+				if err := a.conn.WriteMessage(websocket.BinaryMessage, frameData); err != nil {
+					log.Printf("[Agent] Frame send error: %v", err)
+				}
+				a.connMu.Unlock()
+			}
+		}
+	}
 }
 
 func (a *Agent) trackCursor() {

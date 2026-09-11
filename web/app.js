@@ -46,6 +46,10 @@
     let isPinned = true;
     let canvasRectCache = null;
 
+    let pc = null;
+    let webrtcVideoChannel = null;
+    let webrtcInputChannel = null;
+
     function showToast(message, icon = 'bx-info-circle', color = 'var(--accent)') {
         const toast = document.createElement('div');
         toast.className = 'toast';
@@ -108,6 +112,13 @@
                 ui.sessionTitle.textContent = `${sess.hostname}`;
                 switchView('session');
                 showToast(`Connected to ${sess.hostname}`, 'bx-check-circle', 'var(--success)');
+                initWebRTC();
+                break;
+            case 'webrtc_answer':
+                if (pc) pc.setRemoteDescription(new RTCSessionDescription(msg.payload));
+                break;
+            case 'webrtc_ice_candidate':
+                if (pc) pc.addIceCandidate(new RTCIceCandidate(msg.payload));
                 break;
             case 'system_info':
                 renderSystemInfo(msg.payload);
@@ -138,7 +149,38 @@
             case 'error':
                 showToast(msg.error || 'Error occurred', 'bx-error-circle', 'var(--danger)');
                 break;
+                break;
         }
+    }
+
+    async function initWebRTC() {
+        if (pc) pc.close();
+        
+        pc = new RTCPeerConnection({
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        });
+        
+        webrtcVideoChannel = pc.createDataChannel('video');
+        webrtcInputChannel = pc.createDataChannel('input');
+        
+        webrtcVideoChannel.binaryType = 'arraybuffer';
+        webrtcVideoChannel.onmessage = (e) => {
+            pendingBlob = new Blob([e.data]);
+            if (!isRendering) {
+                isRendering = true;
+                requestAnimationFrame(renderFrame);
+            }
+        };
+        
+        pc.onicecandidate = (e) => {
+            if (e.candidate) {
+                send({ type: 'webrtc_ice_candidate', payload: e.candidate });
+            }
+        };
+        
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        send({ type: 'webrtc_offer', payload: { type: offer.type, sdp: offer.sdp } });
     }
 
     async function renderFrame() {
@@ -275,7 +317,14 @@
         // ui.remoteCursor.style.display = 'none';
     }
 
-    function sendInput(payload) { send({ type: 'input_event', payload: payload }); }
+    function sendInput(payload) { 
+        const msg = { type: 'input_event', payload: payload };
+        if (webrtcInputChannel && webrtcInputChannel.readyState === 'open') {
+            webrtcInputChannel.send(JSON.stringify(msg));
+        } else {
+            send(msg); 
+        }
+    }
 
     ui.canvasWrapper.addEventListener('mousemove', e => {
         const c = getNorm(e); if (!c) return;
@@ -343,7 +392,10 @@
     function stopSession() {
         send({ type: 'disconnect' });
         activeDeviceId = null;
+        if (pc) { pc.close(); pc = null; }
         switchView('dashboard');
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         requestDeviceList();
         showToast('Session ended');
     }

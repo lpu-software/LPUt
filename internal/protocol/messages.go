@@ -39,6 +39,9 @@ const (
 	MsgSessionEstablished = "session_established"
 	MsgDeviceList        = "device_list"
 	MsgError             = "error"
+	MsgWebRTCOffer      = "webrtc_offer"
+	MsgWebRTCAnswer     = "webrtc_answer"
+	MsgWebRTCICECandidate = "webrtc_ice_candidate"
 )
 
 // Message is the top-level wire protocol envelope.
@@ -145,6 +148,17 @@ type FileTransferEnd struct {
 	TransferID string `json:"transfer_id"`
 	Success    bool   `json:"success"`
 	Error      string `json:"error,omitempty"`
+}
+
+type WebRTCSDP struct {
+	SDP  string `json:"sdp"`
+	Type string `json:"type"` // "offer" or "answer"
+}
+
+type WebRTCICECandidate struct {
+	Candidate     string  `json:"candidate"`
+	SDPMid        *string `json:"sdpMid"`
+	SDPMLineIndex *uint16 `json:"sdpMLineIndex"`
 }
 
 type CursorPosition struct {
