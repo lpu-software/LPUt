@@ -47,6 +47,7 @@ type Agent struct {
 	streaming    bool
 	streamMu     sync.Mutex
 	stopStream   chan struct{}
+	frameChan    chan []byte
 	quality      protocol.QualityControl
 	done         chan struct{}
 }
@@ -384,13 +385,27 @@ func (a *Agent) startStreaming() {
 
 	a.streaming = true
 	a.stopStream = make(chan struct{})
+	a.frameChan = make(chan []byte, 1)
 	go a.trackCursor()
 	log.Printf("[Agent] Streaming started (FPS=%d, Quality=%s)", a.quality.FPS, a.quality.Quality)
+
+	// Start dedicated frame sender goroutine
+	go func() {
+		for {
+			select {
+			case <-a.stopStream:
+				return
+			case frame := <-a.frameChan:
+				a.sendBinary(frame)
+			}
+		}
+	}()
 
 	go func() {
 		fps := a.quality.FPS
 		if fps <= 0 { fps = 30 }
 		interval := time.Second / time.Duration(fps)
+		frameCount := 0
 
 		for {
 			select {
@@ -408,7 +423,36 @@ func (a *Agent) startStreaming() {
 			}
 
 			if frame != nil && len(frame.JPEGBytes) > 0 {
-				a.sendBinary(frame.JPEGBytes)
+				// Non-blocking latest-frame drop strategy
+				select {
+				case a.frameChan <- frame.JPEGBytes:
+				default:
+					// Drop the old frame and replace with the new one
+					select {
+					case <-a.frameChan:
+					default:
+					}
+					// Send the latest frame
+					select {
+					case a.frameChan <- frame.JPEGBytes:
+					default:
+					}
+				}
+
+				// Periodically send performance stats (about once per second)
+				if frameCount%fps == 0 {
+					stats := protocol.PerformanceStats{
+						CaptureLatencyMS: frame.CaptureDurationMS,
+						EncodeLatencyMS:  frame.EncodeDurationMS,
+						FPS:              float64(fps),
+						Resolution:       fmt.Sprintf("%dx%d", frame.Width, frame.Height),
+					}
+					a.sendJSON(protocol.Message{
+						Type:    protocol.MsgPerformanceStats,
+						Payload: stats,
+					})
+				}
+				frameCount++
 			}
 
 			elapsed := time.Since(start)

@@ -94,6 +94,16 @@
         <div id="canvas-wrapper" class="canvas-wrapper">
             <canvas id="screen-canvas"></canvas>
             <div id="remote-cursor"><i class='bx bxs-pointer'></i></div>
+            
+            <!-- Developer Diagnostics Overlay -->
+            <div id="diagnostics-overlay" class="diagnostics-overlay" style="display: none;">
+                <h4><i class='bx bx-pulse'></i> Diagnostics</h4>
+                <div class="diag-row"><span>FPS:</span> <span id="diag-fps">-</span></div>
+                <div class="diag-row"><span>Capture:</span> <span id="diag-capture">-</span> ms</div>
+                <div class="diag-row"><span>Encode:</span> <span id="diag-encode">-</span> ms</div>
+                <div class="diag-row"><span>Net RTT:</span> <span id="diag-rtt">-</span> ms</div>
+                <div class="diag-row"><span>Resolution:</span> <span id="diag-res">-</span></div>
+            </div>
         </div>
 
         <!-- Overlays (Sysinfo / Files) -->

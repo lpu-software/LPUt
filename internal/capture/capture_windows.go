@@ -193,6 +193,8 @@ func (e *WindowsCapture) CaptureDisplay(displayIndex int) (*FrameData, error) {
 		h = targetH
 	}
 
+	captureEnd := time.Now()
+
 	var buf bytes.Buffer
 	q := e.quality.JPEGQuality
 	if q <= 0 {
@@ -210,7 +212,9 @@ func (e *WindowsCapture) CaptureDisplay(displayIndex int) (*FrameData, error) {
 		DisplayIndex:  displayIndex,
 		CursorX:       cursorX,
 		CursorY:       cursorY,
-		CursorVisible: cursorVisible,
+		CursorVisible: false, // The real cursor is already embedded in the image
+		CaptureDurationMS: float64(captureEnd.Sub(start).Microseconds()) / 1000.0,
+		EncodeDurationMS:  float64(time.Since(captureEnd).Microseconds()) / 1000.0,
 	}, nil
 }
 

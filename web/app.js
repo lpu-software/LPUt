@@ -125,6 +125,16 @@
             case 'cursor_position':
                 updateRemoteCursor(msg.payload.x, msg.payload.y);
                 break;
+            case 'performance_stats':
+                document.getElementById('diag-fps').textContent = msg.payload.fps.toFixed(1);
+                document.getElementById('diag-capture').textContent = msg.payload.capture_latency_ms.toFixed(1);
+                document.getElementById('diag-encode').textContent = msg.payload.encode_latency_ms.toFixed(1);
+                document.getElementById('diag-res').textContent = msg.payload.resolution;
+                break;
+            case 'pong':
+                const rtt = performance.now() - msg.payload.timestamp;
+                document.getElementById('diag-rtt').textContent = rtt.toFixed(1);
+                break;
             case 'error':
                 showToast(msg.error || 'Error occurred', 'bx-error-circle', 'var(--danger)');
                 break;
@@ -242,8 +252,7 @@
     
     function getNorm(e) {
         if (!canvas.width || !canvas.height) return null;
-        if (!canvasRectCache) canvasRectCache = canvas.getBoundingClientRect();
-        const rect = canvasRectCache;
+        const rect = canvas.getBoundingClientRect();
         const imgR = canvas.width / canvas.height;
         const boxR = rect.width / rect.height;
         let rw = rect.width, rh = rect.height, ox = 0, oy = 0;
@@ -265,8 +274,6 @@
     function updateRemoteCursor(rx, ry) {
         // ui.remoteCursor.style.display = 'none';
     }
-
-    window.addEventListener('resize', () => canvasRectCache = null);
 
     function sendInput(payload) { send({ type: 'input_event', payload: payload }); }
 
@@ -291,6 +298,15 @@
     
     document.addEventListener('keydown', e => {
         if (!ui.views.session.classList.contains('active')) return;
+        
+        // Developer Diagnostics Toggle (Ctrl+Shift+D)
+        if (e.ctrlKey && e.shiftKey && e.code === 'KeyD') {
+            e.preventDefault();
+            const diag = document.getElementById('diagnostics-overlay');
+            diag.style.display = diag.style.display === 'none' ? 'block' : 'none';
+            return;
+        }
+
         if (['ArrowUp','ArrowDown','Space','Tab'].includes(e.code)) e.preventDefault();
         sendInput({ type: 'key_press', key: e.key, code: e.code, alt_key: e.altKey, ctrl_key: e.ctrlKey, shift_key: e.shiftKey, meta_key: e.metaKey });
     });
@@ -316,6 +332,13 @@
             ui.toolbar.style.transform = 'translate(-50%, -100%)';
         }
     });
+
+    // Pinger for Network RTT
+    setInterval(() => {
+        if (ws && ws.readyState === WebSocket.OPEN && ui.views.session.classList.contains('active')) {
+            send({ type: 'ping', payload: { timestamp: performance.now() } });
+        }
+    }, 1000);
 
     function stopSession() {
         send({ type: 'disconnect' });

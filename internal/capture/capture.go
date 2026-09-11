@@ -15,6 +15,8 @@ type FrameData struct {
 	CursorX      int
 	CursorY      int
 	CursorVisible bool
+	CaptureDurationMS float64
+	EncodeDurationMS  float64
 }
 
 // DisplayInfo describes a connected display monitor.

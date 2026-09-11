@@ -337,7 +337,51 @@ table.data-table td { padding: 10px 12px; font-size: 13px; border-bottom: 1px so
 .upload-zone i { font-size: 48px; color: var(--accent); margin-bottom: 12px; }
 
 /* Toasts */
-#toast-container { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 10px; z-index: 1000; }
+#toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 9999;
+}
+
+/* --- Developer Diagnostics Overlay --- */
+.diagnostics-overlay {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: rgba(0, 0, 0, 0.7);
+    color: #0f0;
+    font-family: monospace;
+    font-size: 12px;
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid #0f0;
+    pointer-events: none;
+    z-index: 50;
+    box-shadow: 0 0 10px rgba(0,255,0,0.2);
+}
+
+.diagnostics-overlay h4 {
+    margin: 0 0 8px 0;
+    color: #fff;
+    font-family: var(--font);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+    padding-bottom: 4px;
+}
+
+.diag-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 4px;
+}
+.diag-row span:first-child { color: #888; }
 .toast {
     background: var(--glass-bg); backdrop-filter: blur(10px); border: 1px solid var(--glass-border); padding: 12px 20px;
     border-radius: 8px; display: flex; align-items: center; gap: 12px; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);

@@ -167,7 +167,9 @@ func (e *DarwinCapture) CaptureDisplay(displayIndex int) (*FrameData, error) {
 		DisplayIndex:  displayIndex,
 		CursorX:       int(curX),
 		CursorY:       int(curY),
-		CursorVisible: true,
+		CursorVisible: false, // OS native cursor is composited by SCK natively
+		CaptureDurationMS: float64(time.Since(start).Microseconds()) / 1000.0,
+		EncodeDurationMS:  0, // SCK encodes on the GPU directly
 	}, nil
 }
 

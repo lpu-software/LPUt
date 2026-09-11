@@ -57,6 +57,8 @@ type OperatorConn struct {
 	WriteMu      sync.Mutex
 	ActiveDevice string // deviceID being viewed
 	SessionID    string
+	frameChan    chan []byte
+	stopChan     chan struct{}
 }
 
 // RemoteSession represents an active remote viewing/control session.
@@ -269,7 +271,7 @@ func (s *Server) handleAgentWS(w http.ResponseWriter, r *http.Request) {
 			}
 			s.mu.Unlock()
 
-		case protocol.MsgSystemInfo, protocol.MsgPermissionStatus, protocol.MsgClipboardUpdate, protocol.MsgFileTransferStart, protocol.MsgFileTransferChunk, protocol.MsgFileTransferEnd, protocol.MsgCursorPosition:
+		case protocol.MsgSystemInfo, protocol.MsgPermissionStatus, protocol.MsgClipboardUpdate, protocol.MsgFileTransferStart, protocol.MsgFileTransferChunk, protocol.MsgFileTransferEnd, protocol.MsgCursorPosition, protocol.MsgPerformanceStats:
 			// Forward these messages from the agent to the connected operator
 			s.forwardToOperator(deviceID, msg)
 		}
@@ -295,10 +297,27 @@ func (s *Server) handleConsoleWS(w http.ResponseWriter, r *http.Request) {
 
 	opToken := generateToken(16)
 	op := &OperatorConn{
-		Name:  "console",
-		Token: opToken,
-		Conn:  conn,
+		Name:      "console",
+		Token:     opToken,
+		Conn:      conn,
+		frameChan: make(chan []byte, 1),
+		stopChan:  make(chan struct{}),
 	}
+	
+	// Start dedicated sender goroutine for this operator
+	go func() {
+		for {
+			select {
+			case <-op.stopChan:
+				return
+			case frame := <-op.frameChan:
+				op.WriteMu.Lock()
+				_ = op.Conn.WriteMessage(websocket.BinaryMessage, frame)
+				op.WriteMu.Unlock()
+			}
+		}
+	}()
+
 	s.mu.Lock()
 	s.operators[opToken] = op
 	s.mu.Unlock()
@@ -306,6 +325,7 @@ func (s *Server) handleConsoleWS(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		s.mu.Lock()
 		delete(s.operators, opToken)
+		close(op.stopChan)
 		// End any active session
 		if op.SessionID != "" {
 			if sess, ok := s.sessions[op.SessionID]; ok {
@@ -410,6 +430,12 @@ func (s *Server) handleConsoleWS(w http.ResponseWriter, r *http.Request) {
 			}
 			s.mu.RUnlock()
 
+		case "ping":
+			writeJSON(conn, &op.WriteMu, protocol.Message{
+				Type:    "pong",
+				Payload: msg.Payload,
+			})
+
 		case protocol.MsgAgentShutdown:
 			s.mu.Lock()
 			if op.ActiveDevice != "" {
@@ -474,9 +500,21 @@ func (s *Server) forwardFrameToOperator(deviceID string, data []byte) {
 
 	for _, op := range s.operators {
 		if op.ActiveDevice == deviceID {
-			op.WriteMu.Lock()
-			_ = op.Conn.WriteMessage(websocket.BinaryMessage, data)
-			op.WriteMu.Unlock()
+			// Non-blocking latest-frame drop strategy
+			select {
+			case op.frameChan <- data:
+			default:
+				// Drop the old frame and replace with the new one
+				select {
+				case <-op.frameChan:
+				default:
+				}
+				// Send the latest frame
+				select {
+				case op.frameChan <- data:
+				default:
+				}
+			}
 		}
 	}
 }

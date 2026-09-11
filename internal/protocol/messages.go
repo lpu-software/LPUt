@@ -10,6 +10,7 @@ const (
 	MsgPermissionStatus = "permission_status"
 	MsgSystemInfo       = "system_info"
 	MsgScreenFrame      = "screen_frame"
+	MsgPerformanceStats = "performance_stats"
 
 	// Server → Agent
 	MsgDeviceRegistered  = "device_registered"
@@ -65,6 +66,15 @@ type DeviceRegistration struct {
 type DeviceRegistered struct {
 	SessionToken string `json:"session_token"`
 	ServerTime   int64  `json:"server_time"`
+}
+
+// PerformanceStats contains latency and diagnostic measurements.
+type PerformanceStats struct {
+	CaptureLatencyMS float64 `json:"capture_latency_ms"`
+	EncodeLatencyMS  float64 `json:"encode_latency_ms"`
+	NetworkRTTMS     float64 `json:"network_rtt_ms"`
+	FPS              float64 `json:"fps"`
+	Resolution       string  `json:"resolution"`
 }
 
 // AuthRequest is sent by an operator to authenticate.
