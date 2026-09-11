@@ -261,6 +261,7 @@ func (s *Server) handleAgentWS(w http.ResponseWriter, r *http.Request) {
 				},
 			}
 			writeJSON(conn, &sync.Mutex{}, resp)
+			s.broadcastDeviceList()
 
 		case protocol.MsgHeartbeat:
 			s.mu.Lock()
@@ -284,6 +285,7 @@ func (s *Server) handleAgentWS(w http.ResponseWriter, r *http.Request) {
 		s.audit.Log(LevelInfo, "device_disconnected", fmt.Sprintf("Device disconnected: %s", deviceID), deviceID)
 	}
 	s.mu.Unlock()
+	s.broadcastDeviceList()
 }
 
 // handleConsoleWS handles WebSocket connections from operator management consoles.
@@ -453,6 +455,7 @@ func (s *Server) handleConsoleWS(w http.ResponseWriter, r *http.Request) {
 				op.ActiveDevice = ""
 			}
 			s.mu.Unlock()
+			s.broadcastDeviceList()
 
 		case protocol.MsgQualityControl:
 			s.mu.RLock()
@@ -528,6 +531,27 @@ func (s *Server) forwardToOperator(deviceID string, msg protocol.Message) {
 		if op.ActiveDevice == deviceID {
 			writeJSON(op.Conn, &op.WriteMu, msg)
 		}
+	}
+}
+
+// broadcastDeviceList sends the latest device list to all connected consoles.
+func (s *Server) broadcastDeviceList() {
+	s.mu.RLock()
+	devices := make([]protocol.DeviceInfo, 0, len(s.devices))
+	for _, d := range s.devices {
+		devices = append(devices, d.Info)
+	}
+	s.mu.RUnlock()
+
+	msg := protocol.Message{
+		Type:    protocol.MsgDeviceList,
+		Payload: devices,
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, op := range s.operators {
+		writeJSON(op.Conn, &op.WriteMu, msg)
 	}
 }
 
