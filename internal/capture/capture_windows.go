@@ -161,7 +161,6 @@ func (e *WindowsCapture) CaptureDisplay(displayIndex int) (*FrameData, error) {
 	var ci cursorinfo
 	ci.CbSize = uint32(unsafe.Sizeof(ci))
 	cursorX, cursorY := 0, 0
-	cursorVisible := false
 	rCur, _, _ := procGetCursorInfo.Call(uintptr(unsafe.Pointer(&ci)))
 	if rCur != 0 && (ci.Flags&cursorShowing) != 0 && ci.HCursor != 0 {
 		curX := ci.PtScreenPos.X - int32(bounds.Min.X)
@@ -170,7 +169,6 @@ func (e *WindowsCapture) CaptureDisplay(displayIndex int) (*FrameData, error) {
 			ci.HCursor, 0, 0, 0, 0, diNormal|diCompat)
 		cursorX = int(ci.PtScreenPos.X)
 		cursorY = int(ci.PtScreenPos.Y)
-		cursorVisible = true
 	}
 
 	// Convert BGRA → RGBA
