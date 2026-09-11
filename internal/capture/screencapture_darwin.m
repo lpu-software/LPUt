@@ -1,4 +1,4 @@
-#import "screencapture.h"
+#import "screencapture_darwin.h"
 #import <Foundation/Foundation.h>
 #import <ScreenCaptureKit/ScreenCaptureKit.h>
 #import <CoreGraphics/CoreGraphics.h>

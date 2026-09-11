@@ -4,7 +4,7 @@ package capture
 
 /*
 #cgo CFLAGS: -x objective-c -fobjc-arc -Wno-deprecated-declarations
-#cgo LDFLAGS: -framework Cocoa -framework CoreGraphics -framework ScreenCaptureKit -framework CoreMedia -framework CoreVideo -framework ImageIO
+#cgo LDFLAGS: -framework Cocoa -framework CoreGraphics -framework ScreenCaptureKit -framework CoreMedia -framework CoreVideo -framework VideoToolbox -framework ImageIO
 
 #import <Cocoa/Cocoa.h>
 #import <CoreGraphics/CoreGraphics.h>
